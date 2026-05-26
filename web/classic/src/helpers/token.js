@@ -75,6 +75,42 @@ export async function fetchTokenKeys() {
  * 获取服务器地址
  * @returns {string} 服务器地址
  */
+export function normalizeServerAddress(address) {
+  return String(address || '')
+    .trim()
+    .replace(/\/+$/, '');
+}
+
+export function isLocalServerAddress(address) {
+  try {
+    const hostname = new URL(address).hostname.toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch (_) {
+    return false;
+  }
+}
+
+export function resolvePublicServerAddress(address) {
+  const currentOrigin =
+    typeof window !== 'undefined'
+      ? normalizeServerAddress(window.location.origin)
+      : '';
+  const normalizedAddress = normalizeServerAddress(address);
+
+  if (!normalizedAddress) {
+    return currentOrigin;
+  }
+  if (
+    currentOrigin &&
+    isLocalServerAddress(normalizedAddress) &&
+    !isLocalServerAddress(currentOrigin)
+  ) {
+    return currentOrigin;
+  }
+
+  return normalizedAddress;
+}
+
 export function getServerAddress() {
   let status = localStorage.getItem('status');
   let serverAddress = '';
@@ -82,17 +118,14 @@ export function getServerAddress() {
   if (status) {
     try {
       status = JSON.parse(status);
-      serverAddress = status.server_address || '';
+      serverAddress =
+        status.server_address || status.serverAddress || status.data?.server_address || '';
     } catch (error) {
       console.error('Failed to parse status from localStorage:', error);
     }
   }
 
-  if (!serverAddress) {
-    serverAddress = window.location.origin;
-  }
-
-  return serverAddress;
+  return resolvePublicServerAddress(serverAddress);
 }
 
 export const CHANNEL_CONN_CLIPBOARD_TYPE = 'newapi_channel_conn';

@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
 import { useStatus } from '@/hooks/use-status'
+import { resolvePublicServerAddress } from '@/lib/server-address'
 import type { SystemStatus } from '@/features/auth/types'
 import {
   type ChatPreset,
@@ -45,14 +46,10 @@ function extractServerAddress(status: SystemStatus | null) {
     (status?.data as Record<string, unknown> | undefined)?.serverAddress
 
   if (fromStatus && typeof fromStatus === 'string') {
-    return fromStatus
+    return resolvePublicServerAddress(fromStatus)
   }
 
-  if (typeof window !== 'undefined') {
-    return window.location.origin
-  }
-
-  return ''
+  return resolvePublicServerAddress()
 }
 
 function extractChats(status: SystemStatus | null): RawChatConfig {

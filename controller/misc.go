@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -19,6 +20,71 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func isLocalServerAddress(address string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(address))
+	if err != nil {
+		return false
+	}
+	hostname := strings.ToLower(parsed.Hostname())
+	return hostname == "localhost" || hostname == "127.0.0.1" || hostname == "::1"
+}
+
+func firstForwardedValue(value string) string {
+	if idx := strings.Index(value, ","); idx >= 0 {
+		value = value[:idx]
+	}
+	return strings.TrimSpace(value)
+}
+
+func forwardedProto(forwarded string) string {
+	for _, part := range strings.Split(forwarded, ";") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(strings.ToLower(part), "proto=") {
+			return strings.Trim(strings.TrimSpace(part[6:]), "\"")
+		}
+	}
+	return ""
+}
+
+func requestOrigin(c *gin.Context) string {
+	scheme := firstForwardedValue(c.GetHeader("X-Forwarded-Proto"))
+	if scheme == "" {
+		scheme = firstForwardedValue(c.GetHeader("X-Forwarded-Protocol"))
+	}
+	if scheme == "" {
+		scheme = forwardedProto(firstForwardedValue(c.GetHeader("Forwarded")))
+	}
+	if scheme == "" {
+		if c.Request != nil && c.Request.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+
+	host := firstForwardedValue(c.GetHeader("X-Forwarded-Host"))
+	if host == "" {
+		host = firstForwardedValue(c.GetHeader("X-Original-Host"))
+	}
+	if host == "" && c.Request != nil {
+		host = c.Request.Host
+	}
+	if host == "" {
+		return ""
+	}
+	return strings.TrimRight(scheme+"://"+host, "/")
+}
+
+func publicServerAddress(c *gin.Context) string {
+	configured := strings.TrimRight(strings.TrimSpace(system_setting.ServerAddress), "/")
+	if configured == "" || isLocalServerAddress(configured) {
+		if origin := requestOrigin(c); origin != "" {
+			return origin
+		}
+	}
+	return configured
+}
 
 func TestStatus(c *gin.Context) {
 	err := model.PingDB()
@@ -67,7 +133,7 @@ func GetStatus(c *gin.Context) {
 		"footer_html":                 common.Footer,
 		"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
 		"wechat_login":                common.WeChatAuthEnabled,
-		"server_address":              system_setting.ServerAddress,
+		"server_address":              publicServerAddress(c),
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
 		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,

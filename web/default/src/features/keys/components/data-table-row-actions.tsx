@@ -33,6 +33,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
+import { resolvePublicServerAddress } from '@/lib/server-address'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -63,12 +64,14 @@ function getServerAddress(): string {
     const raw = localStorage.getItem('status')
     if (raw) {
       const status = JSON.parse(raw)
-      if (status.server_address) return status.server_address as string
+      return resolvePublicServerAddress(
+        status.server_address ?? status.serverAddress ?? status.data?.server_address
+      )
     }
   } catch {
     /* empty */
   }
-  return window.location.origin
+  return resolvePublicServerAddress()
 }
 
 function encodeConnectionString(key: string, url: string): string {

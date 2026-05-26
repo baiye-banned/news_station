@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getUserModels } from '@/lib/api'
+import { resolvePublicServerAddress } from '@/lib/server-address'
 import { Button } from '@/components/ui/button'
 import { ComboboxInput } from '@/components/ui/combobox-input'
 import {
@@ -58,42 +59,19 @@ const APP_CONFIGS = {
 
 type AppType = keyof typeof APP_CONFIGS
 
-function normalizeOrigin(address: string): string {
-  return address.trim().replace(/\/+$/, '')
-}
-
-function isLocalhostAddress(address: string): boolean {
-  try {
-    const hostname = new URL(address).hostname.toLowerCase()
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
-  } catch {
-    return false
-  }
-}
-
 function getServerAddress(): string {
-  const currentOrigin = normalizeOrigin(window.location.origin)
   try {
     const raw = localStorage.getItem('status')
     if (raw) {
       const status = JSON.parse(raw)
       const configuredAddress =
         status.server_address ?? status.serverAddress ?? status.data?.server_address
-      if (typeof configuredAddress === 'string' && configuredAddress.trim()) {
-        const normalizedAddress = normalizeOrigin(configuredAddress)
-        if (
-          isLocalhostAddress(normalizedAddress) &&
-          !isLocalhostAddress(currentOrigin)
-        ) {
-          return currentOrigin
-        }
-        return normalizedAddress
-      }
+      return resolvePublicServerAddress(configuredAddress)
     }
   } catch {
     /* empty */
   }
-  return currentOrigin
+  return resolvePublicServerAddress()
 }
 
 function buildCCSwitchURL(

@@ -28,6 +28,7 @@ import {
 } from '@douyinfe/semi-ui';
 import { useTranslation } from 'react-i18next';
 import { selectFilter } from '../../../../helpers';
+import { getServerAddress } from '../../../../helpers/token';
 
 const APP_CONFIGS = {
   claude: {
@@ -51,42 +52,6 @@ const APP_CONFIGS = {
     modelFields: [{ key: 'model', label: '主模型' }],
   },
 };
-
-function normalizeOrigin(address) {
-  return address.trim().replace(/\/+$/, '');
-}
-
-function isLocalhostAddress(address) {
-  try {
-    const hostname = new URL(address).hostname.toLowerCase();
-    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
-  } catch (_) {
-    return false;
-  }
-}
-
-function getServerAddress() {
-  const currentOrigin = normalizeOrigin(window.location.origin);
-  try {
-    const raw = localStorage.getItem('status');
-    if (raw) {
-      const status = JSON.parse(raw);
-      const configuredAddress =
-        status.server_address ?? status.serverAddress ?? status.data?.server_address;
-      if (typeof configuredAddress === 'string' && configuredAddress.trim()) {
-        const normalizedAddress = normalizeOrigin(configuredAddress);
-        if (
-          isLocalhostAddress(normalizedAddress) &&
-          !isLocalhostAddress(currentOrigin)
-        ) {
-          return currentOrigin;
-        }
-        return normalizedAddress;
-      }
-    }
-  } catch (_) {}
-  return currentOrigin;
-}
 
 function buildCCSwitchURL(app, name, models, apiKey) {
   const serverAddress = getServerAddress();
