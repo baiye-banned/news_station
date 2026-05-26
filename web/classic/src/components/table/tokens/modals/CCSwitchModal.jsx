@@ -52,15 +52,40 @@ const APP_CONFIGS = {
   },
 };
 
+function normalizeOrigin(address) {
+  return address.trim().replace(/\/+$/, '');
+}
+
+function isLocalhostAddress(address) {
+  try {
+    const hostname = new URL(address).hostname.toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+  } catch (_) {
+    return false;
+  }
+}
+
 function getServerAddress() {
+  const currentOrigin = normalizeOrigin(window.location.origin);
   try {
     const raw = localStorage.getItem('status');
     if (raw) {
       const status = JSON.parse(raw);
-      if (status.server_address) return status.server_address;
+      const configuredAddress =
+        status.server_address ?? status.serverAddress ?? status.data?.server_address;
+      if (typeof configuredAddress === 'string' && configuredAddress.trim()) {
+        const normalizedAddress = normalizeOrigin(configuredAddress);
+        if (
+          isLocalhostAddress(normalizedAddress) &&
+          !isLocalhostAddress(currentOrigin)
+        ) {
+          return currentOrigin;
+        }
+        return normalizedAddress;
+      }
     }
   } catch (_) {}
-  return window.location.origin;
+  return currentOrigin;
 }
 
 function buildCCSwitchURL(app, name, models, apiKey) {

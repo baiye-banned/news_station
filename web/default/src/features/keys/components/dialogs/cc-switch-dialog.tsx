@@ -58,17 +58,42 @@ const APP_CONFIGS = {
 
 type AppType = keyof typeof APP_CONFIGS
 
+function normalizeOrigin(address: string): string {
+  return address.trim().replace(/\/+$/, '')
+}
+
+function isLocalhostAddress(address: string): boolean {
+  try {
+    const hostname = new URL(address).hostname.toLowerCase()
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  } catch {
+    return false
+  }
+}
+
 function getServerAddress(): string {
+  const currentOrigin = normalizeOrigin(window.location.origin)
   try {
     const raw = localStorage.getItem('status')
     if (raw) {
       const status = JSON.parse(raw)
-      if (status.server_address) return status.server_address
+      const configuredAddress =
+        status.server_address ?? status.serverAddress ?? status.data?.server_address
+      if (typeof configuredAddress === 'string' && configuredAddress.trim()) {
+        const normalizedAddress = normalizeOrigin(configuredAddress)
+        if (
+          isLocalhostAddress(normalizedAddress) &&
+          !isLocalhostAddress(currentOrigin)
+        ) {
+          return currentOrigin
+        }
+        return normalizedAddress
+      }
     }
   } catch {
     /* empty */
   }
-  return window.location.origin
+  return currentOrigin
 }
 
 function buildCCSwitchURL(
